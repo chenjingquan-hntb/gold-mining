@@ -23,13 +23,19 @@
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--chains` | `1` | Comma-separated EVM chain IDs |
-| `--amount` | `100` | Trade size in USD for depth scoring |
+| `--chains` | `solana,xlayer` | Comma-separated chain names (string, not chainId) |
+| `--amount` | `100000000` | Trade size in wei for depth scoring (100 USDC, 6 decimals) |
+| `--min-volume` | `500000` | Minimum 24h volume in USD |
+| `--min-liquidity` | `100000` | Minimum liquidity in USD |
+| `--min-holders` | `500` | Minimum token holder count |
+| `--rank-by` | `7` | Sort dimension (7=liquidity) |
 
 ## Score Weights
 
 | Indicator | Weight | Criteria |
 |-----------|--------|---------|
-| Depth (priceImpact) | 50% | Lower impact = higher score; >0.5% disqualifies |
-| Trend (24h change) | 30% | -1% to +5% range scores highest |
+| Depth (priceImpact) | 40% | Lower impact = higher score; >0.5% disqualifies |
+| Trend (24h change) | 25% | -1% to +5% range scores highest |
 | Volume (24h USD) | 20% | Higher volume = higher score; $500k baseline |
+| Holders | 10% | More holders = safer; 500 baseline |
+| Unique Traders | 5% | Active traders reflect genuine demand |

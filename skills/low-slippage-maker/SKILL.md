@@ -33,20 +33,24 @@ Automated 4-phase maker-entry trading strategy for EVM chains. Minimizes slippag
 ### Step 1 — Scan for tradeable tokens
 
 ```bash
-node scripts/scan.js --chains <chainIds> [--amount <usd>]
+node scripts/scan.js --chains <chain1,chain2> [--amount <wei>] [--min-volume <usd>] [--min-liquidity <usd>] [--min-holders <n>] [--rank-by <1-10>]
 ```
 
 **When to use**: At session start to identify top candidates.
-**Output**: JSON array of top 3 tokens ranked by composite score (depth 50% + trend 30% + volume 20%).
+**Output**: JSON array of top 3 tokens ranked by composite score.
 **Example**:
 ```bash
-node scripts/scan.js --chains 1,42161,8453 --amount 100
+node scripts/scan.js --chains solana,xlayer --min-volume 500000 --min-liquidity 100000
 ```
 
-Scoring criteria:
-- **Depth** (50%): `priceImpactPercentage < 0.5%` required; lower is better
-- **Trend** (30%): 24h change between -1% and +5% scores highest (sideways/mild uptrend)
+Scoring criteria (depth 40% + trend 25% + volume 20% + holders 10% + uniqueTraders 5%):
+- **Depth** (40%): `priceImpactPercent < 0.5%` required; lower is better
+- **Trend** (25%): 24h change between -1% and +5% scores highest
 - **Volume** (20%): 24h volume > $500k preferred
+- **Holders** (10%): more holders = safer token
+- **Unique Traders** (5%): reflects genuine demand
+
+Data source: `onchainos token hot-tokens` with `--risk-filter true --stable-token-filter true`
 
 ### Step 2 — Execute trading cycle
 
