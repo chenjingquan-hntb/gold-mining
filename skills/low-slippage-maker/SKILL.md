@@ -19,7 +19,7 @@ tags:
 
 This skill enables automated 4-phase maker-entry trading on EVM chains and Solana. It simulates limit buy orders by polling on-chain price until the entry target is hit, then executes a time-phased exit sequence (fishing → breakeven → forced exit). The Agent selects coins from hot-tokens data; all trading logic runs autonomously in the bundled `scripts/scan.js` and `scripts/trade.js`.
 
-**Strategy philosophy**: Instead of eating taker fees on every swap, we wait for price to dip 0.1% below market (maker-style entry). This saves ~0.05-0.1% on entry compared to immediate market buy. On exit, we prioritize fast profit capture (Phase 1 fishing at +1.8%), degrade to breakeven if no fill, and force-exit after 15 minutes to keep capital rotating. The core edge is reducing per-trade cost via patient entry.
+**Strategy philosophy**: Instead of eating taker fees on every swap, we wait for price to dip 0.1% below market (maker-style entry). This saves ~0.05-0.1% on entry compared to immediate market buy. On exit, we prioritize fast profit capture (Phase 1 fishing at +1.8%), degrade to breakeven if no fill, and force-exit after 15 minutes to keep capital rotating. The core edge is reducing per-trade cost via patient entry. On Phase 3 (forced exit), trades are split into N chunks at 30-second intervals to prevent large single-sell orders from causing slippage spikes — critical when trading larger sizes for boost rewards.
 
 > **RISK DISCLAIMER**: This plugin executes real on-chain transactions automatically. Never trade with funds you cannot afford to lose. Always validate with `--dry-run true` first.
 
@@ -100,7 +100,7 @@ node scripts/trade.js --chain solana \
 | 1b — Stop (Phase 1) | 5 min | price ≤ entry × (1 − stopLoss) | Emergency stop-loss (−0.6%) |
 | 2 — Breakeven | 5 min | price ≥ entry × (1 + breakeven) | Sell at breakeven (+0.5%) |
 | 2b — Stop (Phase 2) | 5 min | price ≤ entry × (1 − stopLoss) | Emergency stop-loss (−0.6%) |
-| 3 — Forced exit | 5 min | always | Market sell, free capital for next cycle |
+| 3 — Forced exit | 5 min | always | Market sell in N chunks, 30s apart |
 
 **Parameter defaults** (v1.2.0):
 
@@ -111,6 +111,7 @@ node scripts/trade.js --chain solana \
 | `--breakeven` | `0.005` | Phase 2 sell target: entry +0.5% |
 | `--stop-loss` | `0.006` | Stop-loss: entry −0.6% |
 | `--poll-sec` | `15` | Price polling interval in seconds |
+| `--phase3-chunks` | `3` | Number of chunks to split Phase 3 exit into (1 = single sell) |
 
 **PnL math** (approximate, assumes ~0.3% total swap fees):
 - Best case: FISH_HIT → +1.8% − 0.3% fees = **+1.5% net profit**

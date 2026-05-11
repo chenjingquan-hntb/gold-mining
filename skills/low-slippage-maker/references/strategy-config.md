@@ -18,6 +18,7 @@
 | `--breakeven` | `0.005` | Phase 2 sell target: entry +0.5% (covers ~0.3% fees + gas) |
 | `--stop-loss` | `0.006` | Stop-loss: entry −0.6% |
 | `--poll-sec` | `15` | Price polling interval in seconds |
+| `--phase3-chunks` | `3` | Phase 3 exit split into N chunks, 30s apart |
 | `--dry-run` | `true` | Simulate without executing swaps |
 
 ## Scan Parameters (scan.js defaults, v1.2.0)

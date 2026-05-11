@@ -19,6 +19,7 @@ const cfg = {
   breakeven:     parseFloat(get('--breakeven',      '0.005')),
   stopLoss:      parseFloat(get('--stop-loss',      '0.006')),
   pollMs:        parseInt(get('--poll-sec',         '15')) * 1000,
+  phase3Chunks:  parseInt(get('--phase3-chunks',    '3')),
   dryRun:        get('--dry-run', 'true') !== 'false',
 };
 
@@ -192,12 +193,28 @@ async function runPhase2(entryPrice) {
   return { result: 'TIMEOUT' };
 }
 
-// Phase 3: forced market exit
+// Phase 3: forced market exit — split into chunks to avoid slippage
 async function runPhase3(entryPrice) {
   _position.phase = 3;
   const price = await getPrice();
-  const tx = await sell(3, 0.001);
-  log(3, `FORCED_EXIT price=${price} tx=${tx}`);
+  const chunks = cfg.phase3Chunks;
+  const INTERVAL_MS = 30000;  // 30s between chunks to let pool rebalance
+
+  log(3, `FORCED_EXIT splitting into ${chunks} chunks, 30s apart`);
+  for (let i = 0; i < chunks; i++) {
+    const bal = await getTokenBalance();
+    if (bal === '0') { log(3, 'balance=0, done'); break; }
+
+    const remaining = chunks - i;
+    const chunkAmt = String(BigInt(bal) / BigInt(remaining));
+    if (chunkAmt === '0') break;
+
+    const tx = await executeSwap(cfg.to, cfg.from, chunkAmt, 0.001);
+    log(3, `FORCED_EXIT [${i + 1}/${chunks}] amt=${chunkAmt} tx=${tx}`);
+
+    if (i < chunks - 1) await sleep(INTERVAL_MS);
+  }
+
   _position = null;
   return { result: 'FORCED_EXIT', exitPrice: price };
 }
