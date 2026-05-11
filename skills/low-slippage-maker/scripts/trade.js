@@ -52,10 +52,14 @@ async function onchainos(args, retries = 3) {
 }
 
 async function getPrice() {
-  const d = await onchainos(`market price --address ${cfg.to} --chain ${cfg.chain}`);
-  const price = parseFloat(d.data[0].price);
-  if (!price || price <= 0) throw new Error(`invalid price: ${d.data[0].price}`);
-  return price;
+  // Use swap quote for real-time price — market price endpoint is cached
+  const q = await onchainos(
+    `swap quote --from ${cfg.to} --to ${cfg.from} --readable-amount 0.01 --chain ${cfg.chain}`
+  );
+  const toAmount = parseFloat(q.data[0]?.toTokenAmount ?? '0');
+  if (!toAmount || toAmount <= 0) throw new Error(`invalid quote: toAmount=${q.data[0]?.toTokenAmount}`);
+  // Implied price: how many from-tokens for X to-tokens
+  return toAmount / 0.01;
 }
 
 async function getQuote(fromToken, toToken, amount) {
@@ -65,9 +69,19 @@ async function getQuote(fromToken, toToken, amount) {
   return d.data[0];
 }
 
-async function getTokenBalance() {
-  const d = await onchainos(`portfolio balance --address ${cfg.to} --chain ${cfg.chain}`);
-  return d.data[0]?.balance ?? '0';
+async function getTokenBalance(tokenAddr) {
+  const addr = tokenAddr || cfg.to;
+  const d = await onchainos(`wallet balance --chain ${cfg.chain} --token-address ${addr}`);
+  const details = d?.data?.details ?? [];
+  for (const acct of details) {
+    for (const ta of acct?.tokenAssets ?? []) {
+      const taAddr = ta?.tokenAddress || ta?.address || '';
+      if (taAddr.toLowerCase() === addr.toLowerCase()) {
+        return ta?.rawBalance ?? ta?.balance ?? '0';
+      }
+    }
+  }
+  return '0';
 }
 
 async function executeSwap(fromToken, toToken, amount, slippage) {
@@ -224,8 +238,7 @@ async function main() {
   log(0, `Starting trade dryRun=${cfg.dryRun} chain=${cfg.chain}`);
 
   // Balance pre-check
-  const balCheck = await onchainos(`portfolio balance --address ${cfg.from} --chain ${cfg.chain}`);
-  const fromBal = balCheck.data[0]?.balance ?? '0';
+  const fromBal = await getTokenBalance(cfg.from);
   if (BigInt(fromBal) < BigInt(cfg.amount)) {
     console.error(`ABORT: insufficient balance ${fromBal} < ${cfg.amount}`); process.exit(1);
   }
