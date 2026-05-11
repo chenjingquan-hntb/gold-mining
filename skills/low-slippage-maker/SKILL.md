@@ -57,19 +57,32 @@ Before using this skill, ensure:
 ### Step 1 — Scan for tradeable tokens
 
 ```bash
-node scripts/scan.js --chains <chain1,chain2> [--amount <wei>] [--min-volume <usd>] [--min-liquidity <usd>] [--min-holders <n>] [--rank-by <1-10>]
+node scripts/scan.js --chains <chain1,chain2> [--competition] [--quote <addr>] [--min-volume <usd>] [--min-liquidity <usd>] [--min-holders <n>] [--rank-by <1-10>]
 ```
 
 **When to use**: At session start to identify top candidates. Run before every trading session.
 
-**Output**: JSON array of top 3 tokens ranked by composite score. Each entry contains `rank`, `chain`, `symbol`, `address`, `price`, `priceImpact`, `change24h`, `volume24h`, `liquidity`, `holders`, `uniqueTraders`, `score`.
+**Output**: JSON array of top 5 tokens ranked by composite score. Each entry contains `rank`, `chain`, `symbol`, `address`, `priceImpact`, `change24h`, `volume24h`, `liquidity`, `holders`, `uniqueTraders`, `eligible`, `score`.
 
-**Example**:
+**Example (standard)**:
 ```bash
 node scripts/scan.js --chains solana,xlayer --min-volume 500000 --min-liquidity 100000
 ```
 
-**Data source**: `onchainos token hot-tokens` with `--risk-filter true --stable-token-filter true`. Filters out scam tokens and stablecoins automatically.
+**Example (competition mode — filters out stablecoins, wrapped natives, mainnet coins)**:
+```bash
+node scripts/scan.js --chains solana,xlayer --competition --min-volume 20000 --min-liquidity 20000
+```
+
+**`--competition` flag**: When enabled, automatically excludes tokens that don't qualify for trading competitions:
+- Stablecoins: USDC, USDT, DAI, and derivatives
+- Wrapped native tokens: WSOL, WETH, WOKB, xSOL, xETH, xBTC
+- Mainnet coins: SOL, ETH, OKB, BTC, TRX
+- Names containing "Wrapped", "Staked", "bridged"
+
+**`--quote <addr>`**: Explicit quote token address. If omitted, auto-selects per chain (USDC for Solana/Ethereum/Base/Arbitrum, USDT for X Layer).
+
+**Data source**: `onchainos token hot-tokens` → `onchainos swap quote` with appropriate quote currency. Uses `--risk-filter true --stable-token-filter true`.
 
 **Scoring criteria** (depth 40% + trend 25% + volume 20% + holders 10% + uniqueTraders 5%):
 - **Depth** (40%): `priceImpactPercent < 0.5%` required; lower is better

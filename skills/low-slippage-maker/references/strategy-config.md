@@ -25,12 +25,32 @@
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--chains` | `solana,xlayer` | Comma-separated chain names (string: solana, ethereum, base, arbitrum, xlayer, bsc, polygon) |
-| `--amount` | `100000000` | Trade size in minimal units for depth scoring (100 USDC = 100000000) |
-| `--min-volume` | `500000` | Minimum 24h volume in USD |
-| `--min-liquidity` | `100000` | Minimum liquidity in USD |
-| `--min-holders` | `500` | Minimum token holder count |
+| `--chains` | `solana,xlayer` | Comma-separated chain names |
+| `--competition` | `false` | Enable competition-aware filtering (excludes stablecoins, wrapped natives, mainnet coins) |
+| `--quote` | auto | Quote token address; auto-selected per chain (USDC for Solana, USDT for X Layer) |
+| `--min-volume` | `20000` | Minimum 24h volume in USD |
+| `--min-liquidity` | `20000` | Minimum liquidity in USD |
+| `--min-holders` | `300` | Minimum token holder count |
 | `--rank-by` | `7` | Sort dimension for hot-tokens (7=liquidity, 5=volume, 6=market cap) |
+
+### Chain-Specific Quote Defaults
+
+| Chain | Quote Token | Address |
+|-------|-------------|---------|
+| solana | USDC | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+| xlayer | USDT | `0x779ded0c9e1022225f8e0630b35a9b54be713736` |
+| ethereum | USDC | `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` |
+| base | USDC | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
+| arbitrum | USDC | `0xaf88d065e77c8cC2239327C5EDb3A432268e5831` |
+
+### Competition Filter — Excluded Tokens
+
+| Category | Examples |
+|----------|----------|
+| Stablecoins | USDC, USDT, DAI, USDS, JupUSD, syrupUSDC, CASH, USX |
+| Wrapped natives | WSOL, WETH, WOKB, xSOL, xETH, xBTC |
+| Mainnet coins | SOL, ETH, OKB, BTC, TRX |
+| Name patterns | "Wrapped", "Staked", "Liquid Staking", "bridged" |
 
 ## Score Weights
 
