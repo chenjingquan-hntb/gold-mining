@@ -12,10 +12,10 @@
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--entry-discount` | `0.0007` | Buy 0.07% below market price |
-| `--fish-target` | `0.004` | Phase 1 sell target: entry +0.4% |
-| `--breakeven` | `0.0015` | Phase 2 sell target: entry +0.15% (covers ~0.1% fees + gas) |
-| `--stop-loss` | `0.005` | Stop-loss: entry -0.5% |
+| `--entry-discount` | `0.001` | Buy 0.1% below market price |
+| `--fish-target` | `0.018` | Phase 1 sell target: entry +1.8% (net ~1.5% after fees) |
+| `--breakeven` | `0.005` | Phase 2 sell target: entry +0.5% (covers fees + small profit) |
+| `--stop-loss` | `0.006` | Stop-loss: entry -0.6% (net loss ~0.9%); R:R ≈ 1.67 |
 | `--poll-sec` | `15` | Price polling interval in seconds |
 | `--dry-run` | `true` | Simulate without executing swaps |
 

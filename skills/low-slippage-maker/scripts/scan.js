@@ -41,8 +41,12 @@ async function run(cmd, timeoutMs = 10000) {
       execAsync(cmd),
       new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs)),
     ]);
-    return JSON.parse(stdout.trim());
-  } catch {
+    const start = stdout.search(/[{[]/);
+    if (start === -1) throw new Error('no JSON in output');
+    return JSON.parse(stdout.slice(start));
+  } catch (e) {
+    const tag = e.message === 'timeout' ? 'TIMEOUT' : 'PARSE_ERR';
+    process.stderr.write(`[SCAN][${tag}] ${cmd.slice(0, 80)}: ${e.message}\n`);
     return null;
   }
 }
@@ -91,6 +95,12 @@ async function scanChain(chain) {
       const price         = parseFloat(quoteRaw.toTokenAmount && item.price ? item.price : 0);
 
       if (impact > 0.5) return null;
+
+      const top10 = parseFloat(item.top10HoldPercent ?? 0);
+      if (top10 > 80) return null;
+
+      const createdTime = parseInt(item.createdTime ?? 0);
+      if (createdTime && (Date.now() / 1000 - createdTime) < 86400) return null;
 
       return {
         chain, symbol, address, price, priceImpact: impact,

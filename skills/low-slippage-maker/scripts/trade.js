@@ -14,10 +14,10 @@ const cfg = {
   from:          get('--from'),
   to:            get('--to'),
   amount:        get('--amount'),
-  entryDiscount: parseFloat(get('--entry-discount', '0.0007')),
-  fishTarget:    parseFloat(get('--fish-target',    '0.004')),
-  breakeven:     parseFloat(get('--breakeven',      '0.0015')),
-  stopLoss:      parseFloat(get('--stop-loss',      '0.005')),
+  entryDiscount: parseFloat(get('--entry-discount', '0.001')),
+  fishTarget:    parseFloat(get('--fish-target',    '0.018')),
+  breakeven:     parseFloat(get('--breakeven',      '0.005')),
+  stopLoss:      parseFloat(get('--stop-loss',      '0.006')),
   pollMs:        parseInt(get('--poll-sec',         '15')) * 1000,
   dryRun:        get('--dry-run', 'true') !== 'false',
 };
@@ -33,14 +33,28 @@ function log(phase, msg) {
   console.log(`[${new Date().toISOString()}][PHASE-${phase}] ${msg}`);
 }
 
-async function onchainos(args) {
-  const { stdout } = await execAsync(`onchainos ${args}`);
-  return JSON.parse(stdout.trim());
+async function onchainos(args, retries = 3) {
+  let delay = 500;
+  for (let i = 0; i < retries; i++) {
+    try {
+      const { stdout } = await execAsync(`onchainos ${args}`, { timeout: 15000 });
+      const start = stdout.search(/[{[]/);
+      if (start === -1) throw new Error(`no JSON in output`);
+      return JSON.parse(stdout.slice(start));
+    } catch (e) {
+      if (i === retries - 1) throw e;
+      log('RETRY', `attempt ${i + 1} failed: ${e.message}`);
+      await sleep(delay);
+      delay *= 2;
+    }
+  }
 }
 
 async function getPrice() {
   const d = await onchainos(`market price --address ${cfg.to} --chain ${cfg.chain}`);
-  return parseFloat(d.data[0].price);
+  const price = parseFloat(d.data[0].price);
+  if (!price || price <= 0) throw new Error(`invalid price: ${d.data[0].price}`);
+  return price;
 }
 
 async function getQuote(fromToken, toToken, amount) {
@@ -48,6 +62,11 @@ async function getQuote(fromToken, toToken, amount) {
     `swap quote --from ${fromToken} --to ${toToken} --amount ${amount} --chain ${cfg.chain}`
   );
   return d.data[0];
+}
+
+async function getTokenBalance() {
+  const d = await onchainos(`portfolio balance --address ${cfg.to} --chain ${cfg.chain}`);
+  return d.data[0]?.balance ?? '0';
 }
 
 async function executeSwap(fromToken, toToken, amount, slippage) {
@@ -59,7 +78,35 @@ async function executeSwap(fromToken, toToken, amount, slippage) {
   return d.data[0].txHash;
 }
 
+// --- Signal handling ---
+let _position = null;
+
+async function emergencyExit(sig) {
+  log('SIG', `${sig} received`);
+  if (_position) {
+    try {
+      const bal = await getTokenBalance();
+      if (bal !== '0') {
+        const tx = await executeSwap(cfg.to, cfg.from, bal, 0.01);
+        log('SIG', `emergency exit tx=${tx}`);
+      }
+    } catch (e) {
+      log('SIG', `emergency exit FAILED: ${e.message} — manual close required`);
+    }
+  }
+  process.exit(0);
+}
+
+process.on('SIGINT',  () => emergencyExit('SIGINT'));
+process.on('SIGTERM', () => emergencyExit('SIGTERM'));
+
 // --- Phase functions ---
+
+async function sell(phase, slippage) {
+  const bal = await getTokenBalance();
+  if (bal === '0') { log(phase, 'WARN: balance=0, skip sell'); return null; }
+  return executeSwap(cfg.to, cfg.from, bal, slippage);
+}
 
 // Phase 0: poll until price <= entryTarget, then buy; timeout → market buy
 async function simulateLimitBuy() {
@@ -74,6 +121,7 @@ async function simulateLimitBuy() {
       log(0, `price=${price} <= target → buying`);
       const tx = await executeSwap(cfg.from, cfg.to, cfg.amount, 0.001);
       log(0, `bought tx=${tx} entryPrice=${price}`);
+      _position = { phase: 1 };
       return price;
     }
     log(0, `price=${price} waiting...`);
@@ -84,11 +132,13 @@ async function simulateLimitBuy() {
   log(0, `timeout → market buy at ${price}`);
   const tx = await executeSwap(cfg.from, cfg.to, cfg.amount, 0.001);
   log(0, `bought tx=${tx} entryPrice=${price}`);
+  _position = { phase: 1 };
   return price;
 }
 
 // Phase 1: fishing 0-5min
 async function runPhase1(entryPrice) {
+  _position.phase = 1;
   const fishSell  = entryPrice * (1 + cfg.fishTarget);
   const stopPrice = entryPrice * (1 - cfg.stopLoss);
   log(1, `fishSell=${fishSell.toFixed(8)} stopLoss=${stopPrice.toFixed(8)}`);
@@ -97,13 +147,15 @@ async function runPhase1(entryPrice) {
   while (Date.now() < deadline) {
     const price = await getPrice();
     if (price >= fishSell) {
-      const tx = await executeSwap(cfg.to, cfg.from, cfg.amount, 0.001);
+      const tx = await sell(1, 0.001);
       log(1, `FISH_HIT price=${price} tx=${tx}`);
+      _position = null;
       return { result: 'FISH_HIT', exitPrice: price };
     }
     if (price <= stopPrice) {
-      const tx = await executeSwap(cfg.to, cfg.from, cfg.amount, 0.005);
+      const tx = await sell(1, 0.005);
       log(1, `STOP_LOSS price=${price} tx=${tx}`);
+      _position = null;
       return { result: 'STOP_LOSS', exitPrice: price };
     }
     log(1, `price=${price} holding...`);
@@ -114,6 +166,7 @@ async function runPhase1(entryPrice) {
 
 // Phase 2: breakeven 5-10min
 async function runPhase2(entryPrice) {
+  _position.phase = 2;
   const beSell    = entryPrice * (1 + cfg.breakeven);
   const stopPrice = entryPrice * (1 - cfg.stopLoss);
   log(2, `breakevenSell=${beSell.toFixed(8)} stopLoss=${stopPrice.toFixed(8)}`);
@@ -122,13 +175,15 @@ async function runPhase2(entryPrice) {
   while (Date.now() < deadline) {
     const price = await getPrice();
     if (price >= beSell) {
-      const tx = await executeSwap(cfg.to, cfg.from, cfg.amount, 0.001);
+      const tx = await sell(2, 0.001);
       log(2, `BREAKEVEN_HIT price=${price} tx=${tx}`);
+      _position = null;
       return { result: 'BREAKEVEN_HIT', exitPrice: price };
     }
     if (price <= stopPrice) {
-      const tx = await executeSwap(cfg.to, cfg.from, cfg.amount, 0.005);
+      const tx = await sell(2, 0.005);
       log(2, `STOP_LOSS price=${price} tx=${tx}`);
+      _position = null;
       return { result: 'STOP_LOSS', exitPrice: price };
     }
     log(2, `price=${price} holding...`);
@@ -139,15 +194,24 @@ async function runPhase2(entryPrice) {
 
 // Phase 3: forced market exit
 async function runPhase3(entryPrice) {
+  _position.phase = 3;
   const price = await getPrice();
-  const tx = await executeSwap(cfg.to, cfg.from, cfg.amount, 0.001);
+  const tx = await sell(3, 0.001);
   log(3, `FORCED_EXIT price=${price} tx=${tx}`);
+  _position = null;
   return { result: 'FORCED_EXIT', exitPrice: price };
 }
 
 // --- Main ---
 async function main() {
   log(0, `Starting trade dryRun=${cfg.dryRun} chain=${cfg.chain}`);
+
+  // Balance pre-check
+  const balCheck = await onchainos(`portfolio balance --address ${cfg.from} --chain ${cfg.chain}`);
+  const fromBal = balCheck.data[0]?.balance ?? '0';
+  if (BigInt(fromBal) < BigInt(cfg.amount)) {
+    console.error(`ABORT: insufficient balance ${fromBal} < ${cfg.amount}`); process.exit(1);
+  }
 
   // Depth pre-check
   const quote = await getQuote(cfg.from, cfg.to, cfg.amount);
@@ -162,10 +226,12 @@ async function main() {
   if (exit.result === 'TIMEOUT') exit = await runPhase2(entryPrice);
   if (exit.result === 'TIMEOUT') exit = await runPhase3(entryPrice);
 
-  const pnl    = exit.exitPrice - entryPrice;
-  const pnlPct = ((pnl / entryPrice) * 100).toFixed(4);
+  const FEE_RATE = 0.003;
+  const grossPct = (exit.exitPrice - entryPrice) / entryPrice;
+  const netPct   = grossPct - FEE_RATE;
   console.log(
-    `SUMMARY: result=${exit.result} entryPrice=${entryPrice} exitPrice=${exit.exitPrice} pnl=${pnl.toFixed(8)} pnlPct=${pnlPct}%`
+    `SUMMARY: result=${exit.result} entryPrice=${entryPrice} exitPrice=${exit.exitPrice}` +
+    ` grossPnl=${(grossPct * 100).toFixed(4)}% netPnl=${(netPct * 100).toFixed(4)}%`
   );
 }
 
