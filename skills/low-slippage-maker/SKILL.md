@@ -143,10 +143,10 @@ node scripts/trade.js --chain solana \
 6. Wait for output, parse the `SUMMARY:` line:
 
    ```
-   SUMMARY: result=FISH_HIT entryPrice=2.44 exitPrice=2.4839 pnl=0.0439 pnlPct=1.7992%
+   SUMMARY: result=FISH_HIT entryPrice=2.44 exitPrice=2.4839 grossPnl=1.80% netPnl=1.50%
    ```
 
-7. Display: "✅ Trade completed: **FISH_HIT** at +1.80%. Net profit ~1.50% after fees."
+7. Display: "✅ Trade completed: **FISH_HIT** | gross +1.80% → net +1.50% after fees."
 
 ### Example 2: Dry-Run Validation
 
@@ -182,10 +182,10 @@ Follow this exact sequence every session:
    - Dry-run on (default) or off?
 5. **If switching to live trading** (`--dry-run false`): repeat the full risk disclaimer and require an explicit "yes, I understand the risks" confirmation.
 6. **Execute**: run `node scripts/trade.js` with confirmed parameters. Stream stdout to user in real time.
-7. **Parse result**: extract the `SUMMARY:` line using regex: `SUMMARY: result=(\w+) .* pnlPct=([-\d.]+)%`
+7. **Parse result**: extract the `SUMMARY:` line using regex: `SUMMARY: result=(\w+) .* netPnl=([-\d.]+)%`
 8. **Display formatted result**:
    ```
-   ✅ Trade completed: {result} at {pnlPct}%
+   ✅ Trade completed: {result} | gross +{grossPnl}% → net +{netPnl}%
    Entry: {entryPrice} → Exit: {exitPrice}
    ```
 9. **Track consecutive STOP_LOSS count**. If 3 in a row, stop and warn user.
