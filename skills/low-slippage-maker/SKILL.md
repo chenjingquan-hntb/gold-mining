@@ -1,6 +1,6 @@
 ---
 name: low-slippage-maker
-description: "Maker-entry volume trading strategy that minimizes slippage via conditional order simulation and time-phased exit management"
+description: "Maker-entry volume trading strategy that minimizes slippage via conditional order simulation and time-phased exit management | 低滑点maker策略：模拟限价单入场、四阶段分时退出、专为刷量奖励优化的链上执行算法"
 version: "1.2.0"
 author: "btca"
 tags:
@@ -11,6 +11,23 @@ tags:
   - solana
   - strategy
   - limit-order-simulation
+  - 低滑点
+  - maker策略
+  - 模拟限价单
+  - 分段止盈
+  - 分阶段退出
+  - 扫链交易
+  - 刷量
+  - 保本刷量
+  - 链上做市
+  - 低滑移
+  - 挂单策略
+  - 扫链
+  - maker挂单
+  - 做市
+  - 4阶段
+  - maker entry
+  - 保本
 ---
 
 # Low-Slippage Maker Strategy

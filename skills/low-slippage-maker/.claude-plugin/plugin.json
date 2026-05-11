@@ -1,6 +1,6 @@
 {
   "name": "low-slippage-maker",
-  "description": "Maker-entry volume trading strategy that minimizes slippage via conditional order simulation and time-phased exit management",
+  "description": "Maker-entry volume trading strategy that minimizes slippage via conditional order simulation and time-phased exit management | 低滑点maker策略：模拟限价单入场、四阶段分时退出",
   "version": "1.2.0",
   "author": {
     "name": "btca"
@@ -8,5 +8,5 @@
   "homepage": "https://github.com/chenjingquan-hntb/gold-mining",
   "repository": "https://github.com/chenjingquan-hntb/gold-mining",
   "license": "MIT",
-  "keywords": ["slippage", "maker", "trading", "evm", "solana", "strategy", "limit-order-simulation"]
+  "keywords": ["slippage", "maker", "trading", "evm", "solana", "strategy", "limit-order-simulation", "低滑点", "maker策略", "模拟限价单", "分段止盈", "扫链交易", "刷量", "挂单策略", "分阶段退出", "扫链", "maker挂单", "做市", "4阶段", "maker entry", "保本"]
 }
