@@ -1,6 +1,6 @@
 ---
 name: low-slippage-maker
-description: "Maker-entry volume trading strategy that minimizes slippage via conditional order simulation and time-phased exit management | 低滑点maker策略：模拟限价单入场、四阶段分时退出、专为刷量奖励优化的链上执行算法"
+description: "Maker-entry volume trading strategy that minimizes slippage via conditional order simulation and time-phased exit management | 低滑点maker策略：模拟限价单入场、四阶段分时退出、链上低冲击交易执行算法"
 version: "1.2.0"
 author: "btca"
 tags:
@@ -17,8 +17,6 @@ tags:
   - 分段止盈
   - 分阶段退出
   - 扫链交易
-  - 刷量
-  - 保本刷量
   - 链上做市
   - 低滑移
   - 挂单策略
@@ -36,7 +34,7 @@ tags:
 
 This skill enables automated 4-phase maker-entry trading on EVM chains and Solana. It simulates limit buy orders by polling on-chain price until the entry target is hit, then executes a time-phased exit sequence (fishing → breakeven → forced exit). The Agent selects coins from hot-tokens data; all trading logic runs autonomously in the bundled `scripts/scan.js` and `scripts/trade.js`.
 
-**Strategy philosophy**: Instead of eating taker fees on every swap, we wait for price to dip 0.1% below market (maker-style entry). This saves ~0.05-0.1% on entry compared to immediate market buy. On exit, we prioritize fast profit capture (Phase 1 fishing at +1.8%), degrade to breakeven if no fill, and force-exit after 15 minutes to keep capital rotating. The core edge is reducing per-trade cost via patient entry. On Phase 3 (forced exit), trades are split into N chunks at 30-second intervals to prevent large single-sell orders from causing slippage spikes — critical when trading larger sizes for boost rewards.
+**Strategy philosophy**: Instead of eating taker fees on every swap, we wait for price to dip 0.1% below market (maker-style entry). This saves ~0.05-0.1% on entry compared to immediate market buy. On exit, we prioritize fast profit capture (Phase 1 fishing at +1.8%), degrade to breakeven if no fill, and force-exit after 15 minutes to keep capital rotating. The core edge is reducing per-trade cost via patient entry. On Phase 3 (forced exit), trades are split into N chunks at 30-second intervals to prevent large single-sell orders from causing slippage spikes.
 
 > **RISK DISCLAIMER**: This plugin executes real on-chain transactions automatically. Never trade with funds you cannot afford to lose. Always validate with `--dry-run true` first.
 

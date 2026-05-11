@@ -1,7 +1,7 @@
 schema_version: 1
 name: low-slippage-maker
 version: "1.2.0"
-description: "Maker-entry volume trading strategy that minimizes slippage via conditional order simulation and time-phased exit management | 低滑点maker策略：模拟限价单入场、四阶段分时退出、专为刷量奖励优化的链上执行算法"
+description: "Maker-entry volume trading strategy that minimizes slippage via conditional order simulation and time-phased exit management | 低滑点maker策略：模拟限价单入场、四阶段分时退出、链上低冲击交易执行算法"
 author:
   name: "btca"
   github: "btca"
@@ -25,8 +25,6 @@ tags:
   - 分段止盈
   - 分阶段退出
   - 扫链交易
-  - 刷量
-  - 保本刷量
   - 链上做市
   - 低滑移
   - 挂单策略

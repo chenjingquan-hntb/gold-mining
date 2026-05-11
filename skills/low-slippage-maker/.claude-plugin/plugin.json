@@ -5,8 +5,8 @@
   "author": {
     "name": "btca"
   },
-  "homepage": "https://github.com/chenjingquan-hntb/gold-mining",
-  "repository": "https://github.com/chenjingquan-hntb/gold-mining",
+  "homepage": "https://github.com/chenjingquan-hntb/precision-execution",
+  "repository": "https://github.com/chenjingquan-hntb/precision-execution",
   "license": "MIT",
-  "keywords": ["slippage", "maker", "trading", "evm", "solana", "strategy", "limit-order-simulation", "低滑点", "maker策略", "模拟限价单", "分段止盈", "扫链交易", "刷量", "挂单策略", "分阶段退出", "扫链", "maker挂单", "做市", "4阶段", "maker entry", "保本"]
+  "keywords": ["slippage", "maker", "trading", "evm", "solana", "strategy", "limit-order-simulation", "低滑点", "maker策略", "模拟限价单", "分段止盈", "扫链交易", "挂单策略", "分阶段退出", "扫链", "maker挂单", "做市", "4阶段", "maker entry", "保本"]
 }

@@ -1,5 +1,5 @@
 ---
-name: gold-mining
+name: precision-execution
 description: >-
   Autonomous Web3 arbitrage agent using OKX OnchainOS. Scans on-chain liquidity
   pools for low-slippage swap opportunities and executes trades automatically.
