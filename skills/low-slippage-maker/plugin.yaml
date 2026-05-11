@@ -1,19 +1,31 @@
 schema_version: 1
 name: low-slippage-maker
-version: "1.0.0"
+version: "1.2.0"
 description: "Maker-entry volume trading strategy that minimizes slippage via conditional order simulation and time-phased exit management"
 author:
   name: "btca"
   github: "btca"
 license: MIT
 category: strategy
+type: community-developer
+risk_level: advanced
+supported_venues:
+  - onchainos
 tags:
   - slippage
   - maker
   - trading
   - evm
-risk_level: advanced
+  - solana
+  - strategy
+  - limit-order-simulation
+
+dependent_plugin:
+  - name: okx-onchainos-skills
+    version: ">=3.0.0"
+
 components:
   skill:
     dir: "."
+
 api_calls: []
