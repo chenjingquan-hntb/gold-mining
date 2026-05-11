@@ -1,0 +1,10 @@
+{
+  "name": "low-slippage-maker",
+  "description": "Maker-entry volume trading strategy that minimizes slippage via conditional order simulation and time-phased exit management",
+  "version": "1.0.0",
+  "author": {
+    "name": "btca"
+  },
+  "license": "MIT",
+  "keywords": ["slippage", "maker", "trading", "evm"]
+}
