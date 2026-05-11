@@ -1,46 +1,87 @@
 ---
 name: gold-mining
-description: Autonomous Web3 arbitrage agent using OKX OnchainOS — scans for low-slippage opportunities and executes trades automatically
-license: MIT
+description: >-
+  Autonomous Web3 arbitrage agent using OKX OnchainOS. Scans on-chain liquidity
+  pools for low-slippage swap opportunities and executes trades automatically.
+  Use when user says "start gold mining", "run arbitrage", "scan for swap opportunities",
+  "execute defi trading", "start auto trading on chain", or "淘金".
+argument-hint: [--chain <chainId>] [--from <tokenAddress>] [--to <tokenAddress>] [--amount <wei>] [--max-impact <percent>]
+user-invocable: true
+disable-model-invocation: false
+allowed-tools: >-
+  mcp__onchainos-skills__get_swap_quote,
+  mcp__onchainos-skills__execute_swap,
+  mcp__onchainos-skills__get_transaction_status,
+  mcp__onchainos-skills__get_token_price,
+  Bash(node scripts/calc_profit.js *)
+model: sonnet
+context: fork
 metadata:
   author: chenjingquan-hntb
-  version: "0.1"
+  version: "0.2"
   dependencies:
     - okx/onchainos-skills
+  license: MIT
 ---
 
-# Gold Mining Skill
+# Gold Mining — Web3 Arbitrage Agent
 
-Autonomous arbitrage loop using OKX OnchainOS tools. Requires `okx/onchainos-skills` to be installed first.
+## 使用场景
+链上低滑点套利，适用于：
+- 用户说"开始淘金"或"start gold mining"
+- 需要自动扫描并执行 DEX 套利机会
+- 全自动无人值守交易循环
 
-## Usage
+## 参数解析
 
-After installing, tell your agent:
+从用户输入中提取参数，缺省使用 `references/default-config.md` 中的值：
 
-> "Start gold mining on Ethereum: swap USDC → WETH, max price impact 0.3%, trade size 1000 USDC"
+| 参数 | 说明 |
+|------|------|
+| `--chain` | EVM chain ID，默认 1（Ethereum） |
+| `--from` | 卖出 token 地址 |
+| `--to` | 买入 token 地址 |
+| `--amount` | 交易金额（wei） |
+| `--max-impact` | 最大价格影响百分比，默认 0.3 |
 
-## Behavior
+## 执行流程
 
-The agent will run this loop every 500ms:
+每轮循环执行以下步骤，循环间隔 500ms：
 
-### Step 1 — Scan (Market Monitor)
+### Step 1 — 扫描机会（Market Monitor）
 
-Use `get_swap_quote` from onchainos-skills with slippage=0.005 for the requested pair.
+1. 调用 `get_swap_quote`，参数：`{chainId, fromTokenAddress, toTokenAddress, amount, slippage: "0.005"}`
+2. 读取返回的 `priceImpactPercentage` 和 `estimateGasFee`
+3. 运行 `node scripts/calc_profit.js <toAmount> <fromAmount> <gasFee>` 计算预期利润
+4. **中止条件**（任一满足则跳过本轮）：
+   - `priceImpactPercentage >= max-impact`
+   - 脚本输出 `profit <= 0`
 
-Abort this iteration if:
-- `priceImpactPercentage` ≥ 0.3%
-- `estimatedProfit` ≤ `estimateGasFee`
+### Step 2 — 寻优滑点（Slippage Optimizer）
 
-### Step 2 — Optimize (Slippage Optimizer)
+仅在 Step 1 通过后执行：
 
-If Step 1 passes, call `get_swap_quote` again with slippage = 0.001, then 0.003, then 0.005.
-Use the first level where `priceImpactPercentage` < slippage value.
-If none qualify, abort this iteration.
+1. 依次用 slippage = `0.001` → `0.003` → `0.005` 调用 `get_swap_quote`
+2. 选择第一个满足 `priceImpactPercentage < slippage` 且利润 > 0 的档位
+3. 若三档均不满足，中止本轮并记录原因
 
-### Step 3 — Execute (Transaction Manager)
+### Step 3 — 执行交易（Transaction Manager）
 
-Call `execute_swap` with the optimal slippage from Step 2.
-Poll `get_transaction_status` every 5s, up to 3 attempts.
-Log: `[timestamp] txHash=0x... status=success|failed profit=N wei`
+1. 调用 `execute_swap`，传入 Step 2 的最优 slippage 和交易参数
+2. 每 5 秒调用 `get_transaction_status` 轮询，最多 3 次
+3. 记录日志：`[ISO时间] txHash=0x... status=success|failed profit=N wei slippage=X`
 
-Stop the loop only if 3 consecutive transactions return `status=failed`.
+## 停止条件
+
+连续 3 笔交易返回 `status=failed` 时停止循环，输出错误摘要。
+
+## 约束
+
+- 不修改任何本地文件，只执行链上操作
+- 不在单轮循环内发送多笔相关交易
+- 发现异常 gas（> 预期 5 倍）时中止本轮，不执行
+
+## 参考资料
+
+详细链上参数配置见 `references/default-config.md`
+利润计算逻辑见 `scripts/calc_profit.js`
