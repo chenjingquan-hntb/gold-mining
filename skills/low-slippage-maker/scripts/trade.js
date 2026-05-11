@@ -9,8 +9,14 @@ const execAsync = promisify(exec);
 const argv = process.argv.slice(2);
 const get = (k, def) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : def; };
 
+const WALLET = {
+  solana: 'GyWyYWA1sRdFqPcZ5TBrraaAHwUfMKKjFGW9Aujr1bz1',
+  default: '0x12769e3b1aa776cf6380788d3065d8e50d93022a',
+};
+function walletAddr(chain) { return WALLET[chain?.toLowerCase()] || WALLET.default; }
+
 const cfg = {
-  chain:         get('--chain', '1'),
+  chain:         get('--chain', 'solana'),
   from:          get('--from'),
   to:            get('--to'),
   amount:        get('--amount'),
@@ -34,11 +40,11 @@ function log(phase, msg) {
   console.log(`[${new Date().toISOString()}][PHASE-${phase}] ${msg}`);
 }
 
-async function onchainos(args, retries = 3) {
+async function onchainos(args, retries = 1) {
   let delay = 500;
   for (let i = 0; i < retries; i++) {
     try {
-      const { stdout } = await execAsync(`onchainos ${args}`, { timeout: 15000 });
+      const { stdout } = await execAsync(`onchainos ${args}`, { timeout: 60000 });
       const start = stdout.search(/[{[]/);
       if (start === -1) throw new Error(`no JSON in output`);
       return JSON.parse(stdout.slice(start));
@@ -87,10 +93,15 @@ async function getTokenBalance(tokenAddr) {
 async function executeSwap(fromToken, toToken, amount, slippage) {
   if (cfg.dryRun) return '[DRY-RUN]';
   const d = await onchainos(
-    `swap swap --from ${fromToken} --to ${toToken} --amount ${amount}` +
-    ` --slippage ${slippage} --chain ${cfg.chain} --strategy-id low-slippage-maker`
+    `swap execute --from ${fromToken} --to ${toToken} --amount ${amount}` +
+    ` --slippage ${slippage} --chain ${cfg.chain}` +
+    ` --wallet ${walletAddr(cfg.chain)}`
   );
-  return d.data[0].txHash;
+  const result = d?.data;
+  if (typeof result === 'object' && !Array.isArray(result)) {
+    return result.swapTxHash || result.orderId || JSON.stringify(result);
+  }
+  return d.data?.[0]?.txHash || d.data?.[0]?.orderId || 'submitted';
 }
 
 // --- Signal handling ---
@@ -134,7 +145,7 @@ async function simulateLimitBuy() {
     const price = await getPrice();
     if (price <= entryTarget) {
       log(0, `price=${price} <= target → buying`);
-      const tx = await executeSwap(cfg.from, cfg.to, cfg.amount, 0.001);
+      const tx = await executeSwap(cfg.from, cfg.to, cfg.amount, 0.005);
       log(0, `bought tx=${tx} entryPrice=${price}`);
       _position = { phase: 1 };
       return price;
@@ -145,7 +156,7 @@ async function simulateLimitBuy() {
   // timeout: market buy
   const price = await getPrice();
   log(0, `timeout → market buy at ${price}`);
-  const tx = await executeSwap(cfg.from, cfg.to, cfg.amount, 0.001);
+  const tx = await executeSwap(cfg.from, cfg.to, cfg.amount, 0.005);
   log(0, `bought tx=${tx} entryPrice=${price}`);
   _position = { phase: 1 };
   return price;
@@ -162,13 +173,13 @@ async function runPhase1(entryPrice) {
   while (Date.now() < deadline) {
     const price = await getPrice();
     if (price >= fishSell) {
-      const tx = await sell(1, 0.001);
+      const tx = await sell(1, 0.005);
       log(1, `FISH_HIT price=${price} tx=${tx}`);
       _position = null;
       return { result: 'FISH_HIT', exitPrice: price };
     }
     if (price <= stopPrice) {
-      const tx = await sell(1, 0.005);
+      const tx = await sell(1, 0.01);
       log(1, `STOP_LOSS price=${price} tx=${tx}`);
       _position = null;
       return { result: 'STOP_LOSS', exitPrice: price };
@@ -190,13 +201,13 @@ async function runPhase2(entryPrice) {
   while (Date.now() < deadline) {
     const price = await getPrice();
     if (price >= beSell) {
-      const tx = await sell(2, 0.001);
+      const tx = await sell(2, 0.005);
       log(2, `BREAKEVEN_HIT price=${price} tx=${tx}`);
       _position = null;
       return { result: 'BREAKEVEN_HIT', exitPrice: price };
     }
     if (price <= stopPrice) {
-      const tx = await sell(2, 0.005);
+      const tx = await sell(2, 0.01);
       log(2, `STOP_LOSS price=${price} tx=${tx}`);
       _position = null;
       return { result: 'STOP_LOSS', exitPrice: price };
@@ -223,7 +234,7 @@ async function runPhase3(entryPrice) {
     const chunkAmt = String(BigInt(bal) / BigInt(remaining));
     if (chunkAmt === '0') break;
 
-    const tx = await executeSwap(cfg.to, cfg.from, chunkAmt, 0.001);
+    const tx = await executeSwap(cfg.to, cfg.from, chunkAmt, 0.005);
     log(3, `FORCED_EXIT [${i + 1}/${chunks}] amt=${chunkAmt} tx=${tx}`);
 
     if (i < chunks - 1) await sleep(INTERVAL_MS);
