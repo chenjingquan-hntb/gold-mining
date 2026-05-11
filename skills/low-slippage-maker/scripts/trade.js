@@ -40,13 +40,14 @@ async function onchainos(args) {
 
 async function getPrice() {
   const d = await onchainos(`market price --address ${cfg.to} --chain ${cfg.chain}`);
-  return parseFloat(d.price);
+  return parseFloat(d.data[0].price);
 }
 
 async function getQuote(fromToken, toToken, amount) {
-  return onchainos(
+  const d = await onchainos(
     `swap quote --from ${fromToken} --to ${toToken} --amount ${amount} --chain ${cfg.chain}`
   );
+  return d.data[0];
 }
 
 async function executeSwap(fromToken, toToken, amount, slippage) {
@@ -55,7 +56,7 @@ async function executeSwap(fromToken, toToken, amount, slippage) {
     `swap swap --from ${fromToken} --to ${toToken} --amount ${amount}` +
     ` --slippage ${slippage} --chain ${cfg.chain} --strategy-id low-slippage-maker`
   );
-  return d.txHash;
+  return d.data[0].txHash;
 }
 
 // --- Phase functions ---
@@ -150,8 +151,8 @@ async function main() {
 
   // Depth pre-check
   const quote = await getQuote(cfg.from, cfg.to, cfg.amount);
-  if (parseFloat(quote.priceImpactPercentage) > 0.5) {
-    console.error(`ABORT: priceImpact=${quote.priceImpactPercentage}% > 0.5%`);
+  if (Math.abs(parseFloat(quote.priceImpactPercent ?? '0')) > 0.5) {
+    console.error(`ABORT: priceImpact=${quote.priceImpactPercent}% > 0.5%`);
     process.exit(1);
   }
 

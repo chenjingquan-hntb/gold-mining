@@ -7,7 +7,8 @@ const execAsync = promisify(exec);
 
 const args = process.argv.slice(2);
 const chains = (args[args.indexOf('--chains') + 1] ?? '1').split(',').map(Number);
-const amount = args[args.indexOf('--amount') + 1] ?? '100';
+// --amount is in wei; default = 100 USDC on 6-decimal chains (100_000_000)
+const amount = args[args.indexOf('--amount') + 1] ?? '100000000';
 const mock = args.includes('--mock');
 
 if (mock) {
@@ -51,28 +52,39 @@ function score(impact, change24h, volume24h) {
 }
 
 async function scanChain(chainId) {
-  const candidates = await run(`onchainos signal list --chain ${chainId} --limit 20`);
+  const resp = await run(`onchainos signal list --chain ${chainId} --limit 20`);
+  const candidates = resp?.data;
   if (!candidates?.length) return [];
 
   const results = await Promise.all(
-    candidates.slice(0, 20).map(async (token) => {
+    candidates.slice(0, 20).map(async (item) => {
+      const token = item.token ?? item;
+      const address = token.tokenAddress ?? token.address;
+      const symbol = token.symbol;
+      if (!address) return null;
+
       const [priceData, quoteData] = await Promise.all([
-        run(`onchainos market price --address ${token.address} --chain ${chainId}`),
-        run(`onchainos swap quote --from native --to ${token.address} --amount ${amount} --chain ${chainId}`),
+        run(`onchainos market price --address ${address} --chain ${chainId}`),
+        run(`onchainos swap quote --from native --to ${address} --amount ${amount} --chain ${chainId}`),
       ]);
       if (!priceData || !quoteData) return null;
 
-      const change24h = priceData.priceChangePercent24h ?? 0;
-      const volume24h = priceData.volume24h ?? 0;
-      const impact = parseFloat(quoteData.priceImpactPercentage ?? '99');
+      const priceRaw = priceData?.data?.[0];
+      const quoteRaw = quoteData?.data?.[0];
+      if (!priceRaw || !quoteRaw) return null;
 
-      if (impact > 0.5) return null; // insufficient depth
+      const price = parseFloat(priceRaw.price);
+      const change24h = parseFloat(priceRaw.priceChangePercent24h ?? 0);
+      const volume24h = parseFloat(priceRaw.volume24h ?? 0);
+      const impact = Math.abs(parseFloat(quoteRaw.priceImpactPercent ?? '99'));
+
+      if (impact > 0.5) return null;
 
       return {
         chain: chainId,
-        symbol: token.symbol,
-        address: token.address,
-        price: priceData.price,
+        symbol,
+        address,
+        price,
         priceImpact: impact,
         change24h,
         volume24h,
